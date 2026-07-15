@@ -1,0 +1,34 @@
+{
+  "name": "darbar-sweets-backup-tool",
+  "version": "1.0.0",
+  "description": "Standalone backup utility for Darbar Sweets",
+  "author": "Darbar Sweets",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.darbarsweets.backup",
+    "productName": "Darbar Sweets - Backup Tool",
+    "artifactName": "Darbar Sweets - Backup Tool.exe",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "../desktop/assets/icon.ico"
+    }
+  }
+}

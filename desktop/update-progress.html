@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body {
+        align-items: center;
+        background: #fffaf0;
+        color: #123b39;
+        display: flex;
+        flex-direction: column;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        height: 100vh;
+        justify-content: center;
+        margin: 0;
+      }
+      .logo {
+        height: 52px;
+        margin-bottom: 12px;
+        object-fit: contain;
+        width: 52px;
+      }
+      .title {
+        color: #0f615d;
+        font-weight: 800;
+      }
+      .progress-bar {
+        background: #ead8bb;
+        border-radius: 999px;
+        height: 9px;
+        margin-top: 16px;
+        overflow: hidden;
+        width: 82%;
+      }
+      .progress-fill {
+        background: #0f615d;
+        height: 100%;
+        transition: width 0.2s ease;
+        width: 0%;
+      }
+      .label {
+        color: #55716d;
+        font-size: 13px;
+        margin-top: 9px;
+      }
+      .status {
+        color: #6b7d78;
+        font-size: 12px;
+        margin-top: 6px;
+        min-height: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <img class="logo" src="assets/icon.png" alt="Darbar Sweets" />
+    <div class="title">Downloading update...</div>
+    <div class="progress-bar"><div class="progress-fill" id="fill"></div></div>
+    <div class="label" id="percent">0%</div>
+    <div class="status" id="status">Connecting...</div>
+    <script>
+      const { ipcRenderer } = require('electron');
+      ipcRenderer.on('update-progress', (_event, percent) => {
+        const value = Math.max(0, Math.min(100, Number(percent) || 0));
+        document.getElementById('fill').style.width = `${value}%`;
+        document.getElementById('percent').textContent = `${Math.round(value)}%`;
+      });
+      ipcRenderer.on('update-status', (_event, status) => {
+        document.getElementById('status').textContent = status || '';
+      });
+    </script>
+  </body>
+</html>

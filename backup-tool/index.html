@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Darbar Sweets Backup Tool</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: Segoe UI, Arial, sans-serif; background: #f6f0e7; color: #123b39; }
+      main { max-width: 960px; margin: 0 auto; padding: 24px; }
+      .card { background: #fffaf0; border: 1px solid #ead8bb; border-radius: 18px; padding: 22px; box-shadow: 0 18px 45px rgba(31, 23, 10, 0.08); }
+      .section { margin-top: 18px; border-top: 1px solid #ead8bb; padding-top: 18px; }
+      h1 { margin: 0; color: #0f615d; font-family: Georgia, serif; font-size: 32px; }
+      h2 { margin: 0 0 12px; color: #0f615d; font-family: Georgia, serif; font-size: 21px; }
+      p { color: #55716d; }
+      label { font-weight: 650; }
+      .group { display: flex; gap: 12px; padding: 14px; margin: 12px 0; border: 1px solid #ead8bb; border-radius: 14px; background: white; }
+      .group strong { display: flex; justify-content: space-between; gap: 12px; color: #123b39; }
+      .group span { display: block; margin-top: 4px; color: #55716d; font-size: 13px; }
+      .size { color: #0f615d; font-weight: 800; white-space: nowrap; font-style: normal; }
+      .row { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+      .grid { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      input[type="text"], input[type="time"], input[type="number"], select { height: 44px; border: 1px solid #dac197; border-radius: 12px; padding: 0 12px; font-size: 14px; background: white; color: #123b39; }
+      input[type="text"] { flex: 1; min-width: 260px; }
+      input[type="checkbox"] { width: 18px; height: 18px; accent-color: #0f615d; }
+      button { height: 44px; border: 0; border-radius: 12px; padding: 0 18px; font-weight: 800; cursor: pointer; }
+      .secondary { background: white; color: #0f615d; border: 1px solid #dac197; }
+      .primary { background: #0f615d; color: white; box-shadow: 0 12px 26px rgba(15, 97, 93, 0.2); }
+      .danger { background: #fff1f1; color: #b91c1c; border: 1px solid #fecaca; }
+      .primary:disabled { opacity: .6; cursor: not-allowed; }
+      .status { margin-top: 16px; padding: 12px; border-radius: 12px; display: none; }
+      .ok { display: block; background: #e6f6ee; color: #17643a; }
+      .err { display: block; background: #fee2e2; color: #991b1b; }
+      .warning { margin-top: 12px; padding: 12px; border-radius: 12px; background: #fffbeb; color: #92400e; display: none; }
+      table { width: 100%; border-collapse: collapse; background: white; border-radius: 14px; overflow: hidden; }
+      th, td { padding: 12px; border-bottom: 1px solid #ead8bb; text-align: left; font-size: 13px; }
+      th { color: #0f615d; background: #f1e3cb; }
+      .muted { color: #55716d; font-size: 13px; }
+      .pill { display: inline-flex; border-radius: 999px; background: #f1e3cb; padding: 3px 9px; color: #0f615d; font-size: 12px; font-weight: 800; }
+      @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } main { padding: 14px; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <h1>Darbar Sweets Backup Tool</h1>
+        <p>Manual aur auto backup yahin se manage hoga. Auto backup ke liye tool tray/background me running rehna chahiye.</p>
+
+        <div class="section">
+          <h2>Select Accounts/Data</h2>
+          <label><input id="selectAll" type="checkbox" checked /> Select All</label>
+          <div id="groups"></div>
+          <div id="warning" class="warning">Partial backup JSON export hota hai. Full backup recommended hai kyun ke usme complete database copy hoti hai.</div>
+          <p class="muted">Selected size: <b id="selectedSize">0 B</b> | Full database file: <b id="databaseSize">0 B</b></p>
+          <p class="muted">Database: <b id="databasePath">Not initialized yet</b></p>
+        </div>
+
+        <div class="section">
+          <h2>Backup Destination</h2>
+          <div class="row">
+            <input id="destination" type="text" />
+            <button class="secondary" id="browse">Browse</button>
+          </div>
+          <div class="row">
+            <button class="primary" id="backup">Backup Now</button>
+            <button class="secondary" id="refresh">Refresh Sizes</button>
+          </div>
+          <div id="status" class="status"></div>
+        </div>
+
+        <div class="section">
+          <h2>Auto Backup Schedule</h2>
+          <label><input id="enabled" type="checkbox" /> Enable automatic backup</label>
+          <div class="grid">
+            <label>Frequency<br /><select id="frequency"><option>DAILY</option><option>WEEKLY</option><option>MONTHLY</option></select></label>
+            <label>Time<br /><input id="time" type="time" value="23:00" /></label>
+            <label>Weekly Day<br /><select id="dayOfWeek"><option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select></label>
+            <label>Month Day<br /><input id="dayOfMonth" type="number" min="1" max="31" value="1" /></label>
+            <label>Keep Last<br /><input id="keepLast" type="number" min="1" max="100" value="10" /></label>
+          </div>
+          <div class="row">
+            <button class="primary" id="saveSchedule">Save Schedule</button>
+            <span class="muted">Window close karne par schedule enabled ho to tool tray me chalta rahega.</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Backup History</h2>
+          <div style="overflow:auto">
+            <table>
+              <thead><tr><th>Date</th><th>Size</th><th>Type</th><th>File</th><th>Action</th></tr></thead>
+              <tbody id="history"><tr><td colspan="5" class="muted">No backup yet</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script>
+      const defaultGroups = ['ADMIN', 'PRODUCTION_MANAGER', 'CASHIER'];
+      let groups = [];
+      let selected = [...defaultGroups];
+      let history = [];
+      const groupsEl = document.getElementById('groups');
+      const selectAll = document.getElementById('selectAll');
+      const statusEl = document.getElementById('status');
+      const warning = document.getElementById('warning');
+
+      function formatBytes(bytes) {
+        if (!bytes) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+        const value = bytes / Math.pow(1024, index);
+        return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+      }
+
+      function setStatus(message, ok) {
+        statusEl.textContent = message;
+        statusEl.className = `status ${ok ? 'ok' : 'err'}`;
+      }
+
+      function currentSchedule() {
+        return {
+          enabled: document.getElementById('enabled').checked,
+          frequency: document.getElementById('frequency').value,
+          time: document.getElementById('time').value || '23:00',
+          dayOfWeek: Number(document.getElementById('dayOfWeek').value),
+          dayOfMonth: Number(document.getElementById('dayOfMonth').value || 1),
+          keepLast: Number(document.getElementById('keepLast').value || 10),
+          groups: selected
+        };
+      }
+
+      function applySchedule(schedule) {
+        if (!schedule) return;
+        document.getElementById('enabled').checked = Boolean(schedule.enabled);
+        document.getElementById('frequency').value = schedule.frequency || 'DAILY';
+        document.getElementById('time').value = schedule.time || '23:00';
+        document.getElementById('dayOfWeek').value = String(schedule.dayOfWeek ?? 0);
+        document.getElementById('dayOfMonth').value = String(schedule.dayOfMonth ?? 1);
+        document.getElementById('keepLast').value = String(schedule.keepLast ?? 10);
+        selected = schedule.groups?.length ? schedule.groups : selected;
+      }
+
+      function renderGroups() {
+        warning.style.display = selected.length !== defaultGroups.length ? 'block' : 'none';
+        selectAll.checked = selected.length === defaultGroups.length;
+        document.getElementById('selectedSize').textContent = formatBytes(groups.filter(group => selected.includes(group.key)).reduce((sum, group) => sum + group.sizeBytes, 0));
+        groupsEl.innerHTML = groups.map(group => `
+          <label class="group">
+            <input type="checkbox" data-key="${group.key}" ${selected.includes(group.key) ? 'checked' : ''} />
+            <span style="flex:1">
+              <strong>${group.label}<em class="size">${group.sizeFormatted}</em></strong>
+              <span>${group.description}</span>
+            </span>
+          </label>
+        `).join('');
+        document.querySelectorAll('[data-key]').forEach(input => {
+          input.addEventListener('change', () => {
+            selected = input.checked ? [...new Set([...selected, input.dataset.key])] : selected.filter(key => key !== input.dataset.key);
+            renderGroups();
+          });
+        });
+      }
+
+      function renderHistory() {
+        const tbody = document.getElementById('history');
+        if (!history.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="muted">No backup yet</td></tr>';
+          return;
+        }
+        tbody.innerHTML = history.map(item => `
+          <tr>
+            <td>${new Date(item.createdAt).toLocaleString()}</td>
+            <td>${item.sizeFormatted}</td>
+            <td><span class="pill">${item.type}</span></td>
+            <td class="muted">${item.filename}</td>
+            <td><button class="danger" data-delete="${item.id}">Delete</button></td>
+          </tr>
+        `).join('');
+        document.querySelectorAll('[data-delete]').forEach(button => {
+          button.addEventListener('click', async () => {
+            history = await window.backupAPI.deleteHistory(button.dataset.delete);
+            renderHistory();
+          });
+        });
+      }
+
+      async function loadState() {
+        const state = await window.backupAPI.getState();
+        groups = state.groups;
+        history = state.history || [];
+        document.getElementById('databaseSize').textContent = state.databaseSizeFormatted;
+        document.getElementById('databasePath').textContent = state.databasePath || 'Not initialized yet';
+        document.getElementById('destination').value = state.destination;
+        applySchedule(state.schedule);
+        renderGroups();
+        renderHistory();
+        if (state.error) setStatus(state.error, false);
+      }
+
+      selectAll.addEventListener('change', () => {
+        selected = selectAll.checked ? [...defaultGroups] : [];
+        renderGroups();
+      });
+
+      document.getElementById('browse').addEventListener('click', async () => {
+        const folder = await window.backupAPI.selectFolder();
+        if (folder) document.getElementById('destination').value = folder;
+      });
+
+      document.getElementById('refresh').addEventListener('click', async () => {
+        await loadState();
+        setStatus('Sizes refreshed successfully.', true);
+      });
+
+      document.getElementById('backup').addEventListener('click', async () => {
+        try {
+          const button = document.getElementById('backup');
+          button.disabled = true;
+          button.textContent = 'Creating Backup...';
+          const result = await window.backupAPI.runBackup({ groups: selected, destination: document.getElementById('destination').value, type: 'MANUAL' });
+          setStatus(`Backup created: ${result.filePath} (${result.sizeFormatted})`, true);
+          await loadState();
+        } catch (error) {
+          setStatus(error.message || 'Backup failed', false);
+        } finally {
+          const button = document.getElementById('backup');
+          button.disabled = false;
+          button.textContent = 'Backup Now';
+        }
+      });
+
+      document.getElementById('saveSchedule').addEventListener('click', async () => {
+        try {
+          await window.backupAPI.saveSchedule({ destination: document.getElementById('destination').value, schedule: currentSchedule() });
+          setStatus('Auto backup schedule saved.', true);
+          await loadState();
+        } catch (error) {
+          setStatus(error.message || 'Schedule save failed', false);
+        }
+      });
+
+      window.backupAPI.onBackupUpdated(async () => {
+        await loadState();
+        setStatus('Auto backup completed.', true);
+      });
+
+      loadState().catch((error) => setStatus(error.message || 'Unable to load backup tool', false));
+    </script>
+  </body>
+</html>

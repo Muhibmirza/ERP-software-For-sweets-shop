@@ -1,0 +1,83 @@
+{
+  "name": "darbar-sweets-erp",
+  "version": "1.5.8",
+  "description": "Darbar Sweets - Point of Sale & Management System",
+  "main": "main.js",
+  "author": "Darbar Sweets",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "wait-on": "^7.2.0"
+  },
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.darbarsweets.erp",
+    "productName": "Darbar Sweets",
+    "artifactName": "Darbar-Sweets-Setup-${version}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "loading.html",
+      "update-progress.html",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../server/dist",
+        "to": "server/dist"
+      },
+      {
+        "from": "../server/package.json",
+        "to": "server/package.json"
+      },
+      {
+        "from": "../server/node_modules",
+        "to": "server/node_modules"
+      },
+      {
+        "from": "../prisma",
+        "to": "server/prisma"
+      },
+      {
+        "from": "../client/dist",
+        "to": "client/dist"
+      },
+      {
+        "from": "../.env.production",
+        "to": ".env"
+      }
+    ],
+    "extraFiles": [
+      {
+        "from": "../backup-tool/release/Darbar Sweets - Backup Tool.exe",
+        "to": "Darbar Sweets - Backup Tool.exe"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Darbar Sweets"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://aaapparels.com/darbar-sweets-erp/"
+      }
+    ]
+  }
+}

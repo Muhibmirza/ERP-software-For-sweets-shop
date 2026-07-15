@@ -1,0 +1,379 @@
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Minus, Plus, Printer, Search, Ticket, Trash2 } from 'lucide-react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { api, unwrap } from '../api/client';
+import { POSReceipt } from '../components/print/POSReceipt';
+import { TokenSlip } from '../components/print/TokenSlip';
+import { useUiStore } from '../store/ui';
+import type { Category, PaymentMethod, Product, Sale, Unit } from '../types';
+import { formatQuantity, pkr } from '../utils/format';
+import { silentPrint } from '../utils/print';
+
+interface CartLine {
+  product: Product;
+  quantity: number;
+  displayQuantity: number;
+  displayUnit: Unit;
+  unitPrice: number;
+  lineTotal: number;
+}
+
+const toStockQuantity = (displayQuantity: number, displayUnit: Unit, productUnit: Unit) => {
+  if (productUnit === 'KG' && displayUnit === 'GRAM') return displayQuantity / 1000;
+  return displayQuantity;
+};
+
+const toDisplayQuantity = (stockQuantity: number, displayUnit: Unit, productUnit: Unit) => {
+  if (productUnit === 'KG' && displayUnit === 'GRAM') return stockQuantity * 1000;
+  return stockQuantity;
+};
+
+const defaultDisplayQuantity = (_product: Product) => 0;
+const defaultDisplayUnit = (product: Product): Unit => product.unit === 'KG' ? 'KG' : product.unit;
+const stepForUnit = (unit: Unit) => unit === 'GRAM' ? 50 : unit === 'KG' || unit === 'LITRE' ? 0.25 : 1;
+
+export default function POS() {
+  const queryClient = useQueryClient();
+  const toast = useUiStore((s) => s.toast);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('all');
+  const [cart, setCart] = useState<CartLine[]>([]);
+  const [discount, setDiscount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
+  const [cashReceived, setCashReceived] = useState('');
+  const [isDelivery, setIsDelivery] = useState(false);
+  const [deliveryCharges, setDeliveryCharges] = useState('');
+  const [lastSale, setLastSale] = useState<Sale | null>(null);
+  const [showTokenInput, setShowTokenInput] = useState(false);
+  const [tokenNumber, setTokenNumber] = useState('');
+
+  const products = useQuery({ queryKey: ['products'], queryFn: () => unwrap<Product[]>(api.get('/api/products?limit=200&isActive=true')) });
+  const categories = useQuery({ queryKey: ['categories'], queryFn: () => unwrap<Category[]>(api.get('/api/categories')) });
+  const settings = useQuery({ queryKey: ['settings'], queryFn: () => unwrap<any>(api.get('/api/settings')) });
+  const nextToken = useQuery({ queryKey: ['next-token'], queryFn: () => unwrap<{ nextNumber: number }>(api.get('/api/tokens/counter/next')) });
+
+  const filtered = useMemo(() => {
+    return (products.data || []).filter((product) => {
+      const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase());
+      const matchesCategory = category === 'all' || product.categoryId === category;
+      return matchesSearch && matchesCategory;
+    });
+  }, [products.data, search, category]);
+
+  const subtotal = cart.reduce((sum, line) => sum + line.lineTotal, 0);
+  const deliveryTotal = isDelivery ? Number(deliveryCharges || 0) : 0;
+  const total = Math.max(subtotal - discount + deliveryTotal, 0);
+  const cashChange = cashReceived === '' ? null : Number(cashReceived || 0) - total;
+  const payableLines = cart.filter((line) => line.quantity > 0 && line.lineTotal > 0);
+
+  const add = (product: Product) => {
+    if (!product.currentCost || product.currentCost <= 0) {
+      toast('Cost not set yet; sale will continue with zero cost', 'error');
+    }
+    if (product.currentStock <= 0) {
+      toast(`${product.name} is out of stock`, 'error');
+      return;
+    }
+    setCart((current) => {
+      const existing = current.find((line) => line.product.id === product.id);
+      if (existing) {
+        const displayStep = stepForUnit(existing.displayUnit);
+        const nextDisplayQuantity = existing.displayQuantity + displayStep;
+        const nextStockQuantity = toStockQuantity(nextDisplayQuantity, existing.displayUnit, product.unit);
+        if (nextStockQuantity > product.currentStock) {
+          toast(`Only ${formatQuantity(product.currentStock, product.unit)} available`, 'error');
+          return current;
+        }
+        return current.map((line) => (line.product.id === product.id ? { ...line, quantity: nextStockQuantity, displayQuantity: nextDisplayQuantity, lineTotal: line.unitPrice * nextStockQuantity } : line));
+      }
+      const displayUnit = defaultDisplayUnit(product);
+      const displayQuantity = defaultDisplayQuantity(product);
+      const quantity = Math.min(toStockQuantity(displayQuantity, displayUnit, product.unit), product.currentStock);
+      return [...current, { product, quantity, displayQuantity: toDisplayQuantity(quantity, displayUnit, product.unit), displayUnit, unitPrice: product.sellingPrice, lineTotal: product.sellingPrice * quantity }];
+    });
+  };
+
+  const updateQty = (productId: string, direction: number) => {
+    setCart((current) =>
+      current
+        .map((line) => {
+          if (line.product.id !== productId) return line;
+          const nextDisplayQuantity = Math.max(line.displayQuantity + (direction * stepForUnit(line.displayUnit)), 0);
+          const nextQuantity = toStockQuantity(nextDisplayQuantity, line.displayUnit, line.product.unit);
+          if (nextQuantity > line.product.currentStock) {
+            toast(`Only ${formatQuantity(line.product.currentStock, line.product.unit)} available`, 'error');
+            return line;
+          }
+          return { ...line, quantity: nextQuantity, displayQuantity: nextDisplayQuantity, lineTotal: line.unitPrice * nextQuantity };
+        })
+        .filter((line) => line.displayQuantity >= 0)
+    );
+  };
+
+  const setDisplayQty = (productId: string, value: number) => {
+    setCart((current) => current.map((line) => {
+      if (line.product.id !== productId) return line;
+      const safeValue = Math.max(0, Number(value) || 0);
+      const stockQuantity = toStockQuantity(safeValue, line.displayUnit, line.product.unit);
+      if (stockQuantity > line.product.currentStock) {
+        toast(`Only ${formatQuantity(line.product.currentStock, line.product.unit)} available`, 'error');
+        return {
+          ...line,
+          quantity: line.product.currentStock,
+          displayQuantity: toDisplayQuantity(line.product.currentStock, line.displayUnit, line.product.unit),
+          lineTotal: line.unitPrice * line.product.currentStock
+        };
+      }
+      return { ...line, quantity: stockQuantity, displayQuantity: safeValue, lineTotal: line.unitPrice * stockQuantity };
+    }));
+  };
+
+  const setLineTotal = (productId: string, value: number) => {
+    setCart((current) => current.map((line) => {
+      if (line.product.id !== productId) return line;
+      const lineTotal = Math.max(0, Number(value) || 0);
+      const stockQuantity = line.unitPrice > 0 ? lineTotal / line.unitPrice : 0;
+      if (stockQuantity > line.product.currentStock) {
+        toast(`Only ${formatQuantity(line.product.currentStock, line.product.unit)} available`, 'error');
+        return {
+          ...line,
+          quantity: line.product.currentStock,
+          displayQuantity: toDisplayQuantity(line.product.currentStock, line.displayUnit, line.product.unit),
+          lineTotal: line.unitPrice * line.product.currentStock
+        };
+      }
+      return { ...line, quantity: stockQuantity, displayQuantity: toDisplayQuantity(stockQuantity, line.displayUnit, line.product.unit), lineTotal };
+    }));
+  };
+
+  const setDisplayUnit = (productId: string, displayUnit: Unit) => {
+    setCart((current) => current.map((line) => {
+      if (line.product.id !== productId) return line;
+      return { ...line, displayUnit, displayQuantity: toDisplayQuantity(line.quantity, displayUnit, line.product.unit) };
+    }));
+  };
+
+  const removeLine = (productId: string) => setCart((current) => current.filter((line) => line.product.id !== productId));
+
+  const clearCart = () => {
+    setCart([]);
+    setDiscount(0);
+    setCashReceived('');
+    setIsDelivery(false);
+    setDeliveryCharges('');
+    setShowTokenInput(false);
+    setTokenNumber('');
+  };
+
+  const buildSalePayload = (override?: { tokenNumber?: number }) => ({
+    items: payableLines.map((line) => ({
+      productId: line.product.id,
+      quantity: line.quantity,
+      displayQuantity: line.displayQuantity,
+      displayUnit: line.displayUnit,
+      unitPrice: line.quantity > 0 ? line.lineTotal / line.quantity : line.unitPrice
+    })),
+    discount,
+    taxAmount: 0,
+    paymentMethod,
+    cashReceived: paymentMethod === 'CASH' ? cashReceived : undefined,
+    isDelivery,
+    deliveryCharges: deliveryTotal,
+    tokenNumber: override?.tokenNumber
+  });
+
+  const buildTokenSlipData = (finalTokenNumber: number) => ({
+    tokenNumber: finalTokenNumber,
+    items: payableLines.map((line) => ({
+      productId: line.product.id,
+      product: line.product,
+      name: line.product.name,
+      quantity: line.quantity,
+      displayQuantity: line.displayQuantity,
+      displayUnit: line.displayUnit,
+      unitPrice: line.quantity > 0 ? line.lineTotal / line.quantity : line.unitPrice,
+      subtotal: line.lineTotal
+    })),
+    totalAmount: subtotal,
+    createdAt: new Date()
+  });
+
+  const saleMutation = useMutation({
+    mutationFn: (payload?: { tokenNumber?: number; tokenSlip?: any }) =>
+      unwrap<Sale>(
+        api.post('/api/sales', buildSalePayload({ tokenNumber: payload?.tokenNumber }))
+      ),
+    onSuccess: (sale, payload) => {
+      setLastSale(sale);
+      if (payload?.tokenSlip) {
+        silentPrint(renderToStaticMarkup(<TokenSlip token={{ ...payload.tokenSlip, tokenNumber: sale.tokenNumber || payload.tokenNumber }} />));
+        toast(`Token ${sale.tokenNumber || payload.tokenNumber} printed. Sale recorded.`);
+      } else {
+        toast(`Sale completed! Invoice: ${sale.invoiceNo}`);
+      }
+      clearCart();
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['revenue'] });
+      queryClient.invalidateQueries({ queryKey: ['top-products'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-items'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice-suggestions'] });
+    },
+    onError: (error: any) => toast(error.response?.data?.message || 'Sale failed', 'error')
+  });
+
+  const submitTokenSale = () => {
+    const finalTokenNumber = Number(tokenNumber || nextToken.data?.nextNumber || 1);
+    if (!payableLines.length || !finalTokenNumber || finalTokenNumber <= 0) return;
+    saleMutation.mutate({ tokenNumber: finalTokenNumber, tokenSlip: buildTokenSlipData(finalTokenNumber) });
+  };
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1fr_420px]">
+      <section className="space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex min-h-11 flex-1 items-center gap-2 rounded-md border bg-white px-3 dark:border-slate-800 dark:bg-slate-900">
+            <Search size={18} />
+            <input className="w-full bg-transparent outline-none" placeholder="Search sweets, bakery, drinks" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          <select className="touch rounded-md border bg-white px-3 dark:border-slate-800 dark:bg-slate-900" value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value="all">All categories</option>
+            {categories.data?.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+          </select>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+          {filtered.map((product) => (
+            <button
+              key={product.id}
+              className="min-h-36 rounded-lg border bg-white p-3 text-left shadow-sm transition hover:border-orange-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900"
+              disabled={product.currentStock <= 0}
+              onClick={() => add(product)}
+            >
+              <div className="flex h-full flex-col justify-between">
+                <div>
+                  <div className="font-semibold">{product.name}</div>
+                  <div className="text-xs text-slate-500">{product.category?.name}</div>
+                  {!product.currentCost && <span className="mt-1 inline-block rounded bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">Cost Not Set</span>}
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-orange-600">{pkr(product.sellingPrice)}</div>
+                  <div className={`text-xs ${product.currentStock <= product.minStockLevel ? 'text-red-600' : 'text-slate-500'}`}>
+                    {formatQuantity(product.currentStock, product.unit)} available
+                  </div>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <aside className="rounded-lg border bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="mb-3 text-lg font-semibold">Cart</h2>
+        <div className="max-h-[42vh] space-y-2 overflow-auto pr-1">
+          {cart.map((line) => (
+            <div key={line.product.id} className="rounded-md border p-3 dark:border-slate-800">
+              <div className="flex justify-between gap-2">
+                <div>
+                  <div className="font-medium">{line.product.name}</div>
+                  <div className="text-xs text-slate-500">{pkr(line.product.sellingPrice)} / {line.product.unit}</div>
+                </div>
+                <button className="touch text-red-600" onClick={() => removeLine(line.product.id)} aria-label="Remove">
+                  <Trash2 size={18} />
+                </button>
+              </div>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center rounded-md border dark:border-slate-700">
+                  <button className="touch" onClick={() => updateQty(line.product.id, -1)} aria-label="Decrease"><Minus size={16} /></button>
+                  <input className="w-20 bg-transparent text-center outline-none" type="number" min="0" step={line.displayUnit === 'GRAM' ? 1 : 0.001} value={line.displayQuantity || ''} placeholder="0" onChange={(event) => setDisplayQty(line.product.id, Number(event.target.value))} />
+                  <button className="touch disabled:opacity-40" disabled={line.quantity >= line.product.currentStock} onClick={() => updateQty(line.product.id, 1)} aria-label="Increase"><Plus size={16} /></button>
+                </div>
+                {line.product.unit === 'KG' ? (
+                  <select className="h-11 rounded-md border bg-transparent px-2 text-sm" value={line.displayUnit} onChange={(event) => setDisplayUnit(line.product.id, event.target.value as Unit)}>
+                    <option value="GRAM">GRAM</option>
+                    <option value="KG">KG</option>
+                  </select>
+                ) : <span className="text-sm font-semibold">{line.displayUnit}</span>}
+                <input className="h-11 w-28 rounded-md border bg-transparent px-2 text-right font-semibold" type="number" min="0" step="0.001" value={line.lineTotal || ''} placeholder="Price" onChange={(event) => setLineTotal(line.product.id, Number(event.target.value))} />
+              </div>
+              <div className="mt-1 text-xs text-slate-500">Billing: {formatQuantity(line.displayQuantity, line.displayUnit)} | Stock deduct: {formatQuantity(line.quantity, line.product.unit)}</div>
+              {line.quantity >= line.product.currentStock && <div className="mt-1 text-xs text-red-600">Only {formatQuantity(line.product.currentStock, line.product.unit)} available</div>}
+            </div>
+          ))}
+          {cart.length === 0 && <div className="rounded-md bg-slate-100 p-6 text-center text-sm text-slate-500 dark:bg-slate-800">Tap products to build a bill</div>}
+        </div>
+        <div className="mt-4 space-y-3 border-t pt-4 dark:border-slate-800">
+          <div className="flex justify-between text-sm"><span>Subtotal</span><span>{pkr(subtotal)}</span></div>
+          <label className="flex min-h-11 items-center justify-between gap-3 text-sm">
+            <span>Discount</span>
+            <input className="w-32 rounded-md border bg-transparent px-3 py-2 text-right dark:border-slate-700" type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} />
+          </label>
+          <label className="flex min-h-10 items-center gap-2 text-sm">
+            <input type="checkbox" checked={isDelivery} onChange={(e) => setIsDelivery(e.target.checked)} />
+            <span>Delivery Order</span>
+          </label>
+          {isDelivery && (
+            <label className="flex min-h-11 items-center justify-between gap-3 text-sm">
+              <span>Delivery Charges</span>
+              <input className="w-32 rounded-md border bg-transparent px-3 py-2 text-right dark:border-slate-700" type="number" min="0" value={deliveryCharges} onChange={(e) => setDeliveryCharges(e.target.value)} />
+            </label>
+          )}
+          <div className="flex justify-between text-xl font-bold"><span>Total</span><span>{pkr(total)}</span></div>
+          <div className="grid grid-cols-2 gap-2">
+            {(['CASH', 'CARD', 'JAZZCASH', 'EASYPAISA'] as PaymentMethod[]).map((method) => (
+              <button key={method} className={`touch rounded-md border text-sm ${paymentMethod === method ? 'border-orange-600 bg-orange-50 text-orange-700 dark:bg-orange-950' : 'dark:border-slate-700'}`} onClick={() => setPaymentMethod(method)}>
+                {method}
+              </button>
+            ))}
+          </div>
+          {paymentMethod === 'CASH' && (
+            <div className="space-y-2 rounded-md border p-3 text-sm dark:border-slate-800">
+              <label className="flex items-center justify-between gap-3">
+                <span>Cash Received</span>
+                <input className="w-32 rounded-md border bg-transparent px-3 py-2 text-right dark:border-slate-700" type="number" min="0" value={cashReceived} onChange={(e) => setCashReceived(e.target.value)} />
+              </label>
+              <div className={`flex justify-between font-semibold ${cashChange !== null && cashChange < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                <span>Change</span><span>{cashChange === null ? pkr(0) : pkr(Math.max(cashChange, 0))}</span>
+              </div>
+              {cashChange !== null && cashChange < 0 && <div className="text-xs text-red-600">Amount entered is less than total</div>}
+            </div>
+          )}
+          <button className="touch w-full rounded-md bg-green-600 font-bold text-white transition hover:bg-green-700 disabled:opacity-50" disabled={!payableLines.length || saleMutation.isPending || (paymentMethod === 'CASH' && cashChange !== null && cashChange < 0)} onClick={() => saleMutation.mutate({})}>
+            Complete Sale
+          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button className="touch flex items-center justify-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 disabled:opacity-40 dark:border-slate-700" disabled={!lastSale} onClick={() => lastSale && silentPrint(renderToStaticMarkup(<POSReceipt sale={lastSale} settings={settings.data} />))}>
+              <Printer size={16} /> Print Receipt
+            </button>
+            <button className="touch flex items-center justify-center gap-2 rounded-md border border-blue-300 px-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 disabled:opacity-40" disabled={!payableLines.length || saleMutation.isPending} onClick={() => {
+              setTokenNumber(String(nextToken.data?.nextNumber || ''));
+              setShowTokenInput(true);
+            }}>
+              <Ticket size={16} /> Generate Token
+            </button>
+          </div>
+          {showTokenInput && (
+            <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-2">
+              <span className="text-sm font-semibold text-blue-700">Token No:</span>
+              <input
+                type="number"
+                autoFocus
+                value={tokenNumber}
+                onChange={(event) => setTokenNumber(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') submitTokenSale();
+                }}
+                className="h-10 w-20 rounded border border-blue-300 bg-white px-2 text-center text-lg font-bold outline-none"
+                placeholder="1"
+              />
+              <button className="rounded bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40" type="button" disabled={!Number(tokenNumber || nextToken.data?.nextNumber || 0) || saleMutation.isPending} onClick={submitTokenSale}>
+                Print
+              </button>
+              <button className="px-2 text-sm font-semibold text-slate-500" type="button" onClick={() => setShowTokenInput(false)}>Cancel</button>
+            </div>
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+}
