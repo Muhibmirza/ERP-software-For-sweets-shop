@@ -10,11 +10,11 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
-const sizeClasses = {
-  sm: 'max-w-sm',
-  md: 'max-w-lg',
-  lg: 'max-w-2xl',
-  xl: 'max-w-4xl'
+const sizeMap = {
+  sm: '400px',
+  md: '560px',
+  lg: '768px',
+  xl: '1024px'
 };
 
 export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
@@ -28,14 +28,32 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4"
-      style={{ backdropFilter: 'blur(5px)' }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)'
+      }}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <section
-        className={`modal-scroll max-h-[92vh] w-full ${sizeClasses[size]} overflow-y-auto rounded-2xl border border-[#ead8bb] bg-[#fffaf0] shadow-2xl`}
+        className="modal-scroll overflow-y-auto border border-[#ead8bb] bg-[#fffaf0]"
+        style={{
+          width: '100%',
+          maxWidth: sizeMap[size],
+          maxHeight: '90vh',
+          borderRadius: '12px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          position: 'relative'
+        }}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="sticky top-0 z-10 flex items-center justify-between border-b border-[#ead8bb] bg-[#fffaf0]/95 px-5 py-4 backdrop-blur">

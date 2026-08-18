@@ -49,7 +49,7 @@ export default function Login() {
   return (
     <main className="login-page relative min-h-[100svh] overflow-hidden bg-black text-white">
       <video
-        className="absolute inset-0 z-0 h-full w-full object-cover opacity-100 brightness-110 contrast-105"
+        className="fixed inset-0 z-0 h-full w-full object-cover opacity-100 brightness-110 contrast-105"
         autoPlay
         loop
         muted
@@ -58,10 +58,12 @@ export default function Login() {
         poster="/assets/darbar-sweets-login-poster.jpg"
         aria-hidden="true"
       >
+        <source src="/login-bg.mp4" type="video/mp4" />
+        <source src="/login-bg.mov" type="video/quicktime" />
         <source src="/assets/darbar-sweets-login-bg.mp4" type="video/mp4" />
       </video>
-      <div className="absolute inset-0 z-[1] bg-black/35" />
-      <div className="pointer-events-none absolute inset-0 z-[2] bg-[linear-gradient(180deg,_rgba(0,0,0,0.08),_rgba(0,0,0,0.24))]" />
+      <div className="fixed inset-0 z-[1] bg-black/45" />
+      <div className="pointer-events-none fixed inset-0 z-[2] bg-[linear-gradient(180deg,_rgba(0,0,0,0.08),_rgba(0,0,0,0.24))]" />
 
       <div className="relative z-10 grid min-h-[100svh] w-full place-items-center px-3 py-3 sm:px-6 sm:py-6 lg:px-8">
         <form
@@ -120,6 +122,21 @@ export default function Login() {
             {formState.isSubmitting ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
+      </div>
+
+      <div
+        className="fixed bottom-5 left-5 z-20 flex items-center gap-2.5"
+        aria-label="Viralage branding"
+      >
+        <img
+          src="/viralage-logo.png"
+          alt="Viralage"
+          className="h-9 w-9 object-contain"
+        />
+        <div className="leading-snug text-white">
+          <div className="text-[13px] font-bold uppercase tracking-[0.08em]">Viralage</div>
+          <div className="text-[11px] text-white/80">Developed by Muhib Mirza</div>
+        </div>
       </div>
     </main>
   );

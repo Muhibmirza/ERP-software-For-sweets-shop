@@ -25,6 +25,10 @@ export function OrderSlip({ order }: { order: any }) {
       <div className="print-row"><span>Advance Paid</span><span>{pkr(order?.advancePaid || 0)}</span></div>
       <div className="print-row"><span>Due Amount</span><span>{pkr(order?.dueAmount || 0)}</span></div>
       {order?.notes && <div>Notes: {order.notes}</div>}
+      <div className="print-line" />
+      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
+        Built by Viralage | Developed by Muhib Mirza
+      </div>
     </div>
   );
 }

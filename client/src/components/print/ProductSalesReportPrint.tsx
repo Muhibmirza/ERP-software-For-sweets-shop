@@ -37,6 +37,9 @@ export function ProductSalesReportPrint({ report }: { report: any }) {
       <div style={{ textAlign: 'center', fontSize: '9pt', fontWeight: 'normal' }}>
         Printed: {dayjs().format('DD-MMM-YYYY  hh:mm A')}
       </div>
+      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
+        Built by Viralage | Developed by Muhib Mirza
+      </div>
     </div>
   );
 }

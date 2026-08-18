@@ -30,6 +30,10 @@ export function RecipePrint({ recipe, cost }: { recipe: any; cost?: any }) {
       <div className="print-row print-total"><span>TOTAL COST / {recipe?.yieldUnit || 'UNIT'}</span><span>{pkr(totalCostPerUnit)}</span></div>
       <div className="print-center">(Selling price set separately)</div>
       {recipe?.notes && <p>Notes: {recipe.notes}</p>}
+      <div className="print-line" />
+      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
+        Built by Viralage | Developed by Muhib Mirza
+      </div>
     </div>
   );
 }

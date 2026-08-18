@@ -72,6 +72,10 @@ export function POSReceipt({ sale }: POSReceiptProps) {
       )}
       {line}
       <div style={{ textAlign: 'center', fontSize: '12pt', fontWeight: 900, margin: '6px 0' }}>Thank You</div>
+      {line}
+      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
+        Built by Viralage | Developed by Muhib Mirza
+      </div>
     </div>
   );
 }

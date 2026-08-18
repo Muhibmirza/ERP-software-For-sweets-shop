@@ -26,6 +26,10 @@ export function ProductionSlip({ order }: { order: any }) {
       <div className="print-row"><span>Total Batch Cost</span><span>{pkr(order?.totalCost || 0)}</span></div>
       <div className="print-row"><span>Cost Per Unit</span><span>{pkr(order?.costPerUnit || 0)}</span></div>
       <div>Created By: {order?.creator?.name || '-'}</div>
+      <div className="print-line" />
+      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
+        Built by Viralage | Developed by Muhib Mirza
+      </div>
     </div>
   );
 }

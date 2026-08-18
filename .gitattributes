@@ -1,0 +1,2 @@
+client/public/login-bg.mov filter=lfs diff=lfs merge=lfs -text
+client/public/login-bg.mp4 filter=lfs diff=lfs merge=lfs -text

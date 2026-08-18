@@ -42,6 +42,10 @@ export function TokenSlip({ token }: { token: any }) {
         <span>{dayjs(token.createdAt).format('DD-MMM-YYYY')}</span>
         <span>{dayjs(token.createdAt).format('hh:mm A')}</span>
       </div>
+      <div style={{ borderTop: '1px dashed #000', margin: '4px 0' }} />
+      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
+        Built by Viralage | Developed by Muhib Mirza
+      </div>
     </div>
   );
 }

@@ -38,6 +38,10 @@ export function PayslipPrint({ salary }: { salary: any }) {
       <div>Remarks: {salary?.remarks || '-'}</div>
       <div className="print-line" />
       <div>Authorized: ______________</div>
+      <div className="print-line" />
+      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
+        Built by Viralage | Developed by Muhib Mirza
+      </div>
     </div>
   );
 }

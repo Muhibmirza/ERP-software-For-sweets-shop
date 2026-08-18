@@ -98,12 +98,14 @@ export function Layout() {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `erp-nav-link flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-medium transition duration-200 ${
+                `erp-nav-link flex min-h-12 items-center rounded-xl text-sm font-medium transition duration-200 ${
+                  sidebarOpen ? 'gap-3 px-3' : 'mx-auto h-11 w-11 justify-center p-0'
+                } ${
                   isActive ? 'bg-[#0f615d] text-white shadow-md shadow-[#0f615d]/18' : 'text-[#496864] hover:bg-[#f1e3cb] hover:text-[#0f615d]'
                 }`
               }
             >
-              <item.icon size={20} />
+              <item.icon size={20} className="shrink-0" />
               {sidebarOpen && <span>{item.label}</span>}
             </NavLink>
           ))}

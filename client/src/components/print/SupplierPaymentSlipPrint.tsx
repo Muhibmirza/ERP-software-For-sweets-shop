@@ -46,6 +46,10 @@ export function SupplierPaymentSlipPrint({ summary, payment }: { summary: any; p
       <div className="print-row"><span>Payment Method</span><b>{payment?.paymentMethod || '-'}</b></div>
       <div className="print-line" />
       <div className="print-center">Thank You</div>
+      <div className="print-line" />
+      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
+        Built by Viralage | Developed by Muhib Mirza
+      </div>
     </div>
   );
 }
