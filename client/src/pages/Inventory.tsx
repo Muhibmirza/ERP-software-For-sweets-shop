@@ -22,7 +22,7 @@ export default function Inventory() {
   const user = useAuthStore((state) => state.user);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
-  const [stockForm, setStockForm] = useState({ quantity: '', reason: 'Manual stock addition', batchNumber: '', expiryDate: '', costPrice: '', date: datetimeLocalNow() });
+  const [stockForm, setStockForm] = useState({ quantity: '', reason: 'Manual stock addition', batchNumber: '', expiryDate: '', costPrice: '', date: datetimeLocalNow(), adjustmentType: 'IN' as 'IN' | 'OUT' });
   const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -69,9 +69,9 @@ export default function Inventory() {
   const addStock = useMutation({
     mutationFn: () => unwrap<Product>(api.post(`/api/products/${stockProduct!.id}/add-stock`, stockForm)),
     onSuccess: () => {
-      toast('Stock added');
+      toast(stockForm.adjustmentType === 'IN' ? 'Stock added' : 'Stock removed');
       setStockProduct(null);
-      setStockForm({ quantity: '', reason: 'Manual stock addition', batchNumber: '', expiryDate: '', costPrice: '', date: datetimeLocalNow() });
+      setStockForm({ quantity: '', reason: 'Manual stock addition', batchNumber: '', expiryDate: '', costPrice: '', date: datetimeLocalNow(), adjustmentType: 'IN' });
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['stock-movements'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
@@ -103,7 +103,7 @@ export default function Inventory() {
                     <td>{product.currentCost > 0 ? pkr(product.currentCost) : '—'}</td>
                     <td>{product.currentStock} {product.unit}</td>
                     <td><span className={`rounded-md px-2 py-1 text-xs ${product.currentStock <= product.minStockLevel ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{product.currentStock <= product.minStockLevel ? 'Low' : 'OK'}</span></td>
-                    <td><div className="flex justify-end gap-2">{(user?.role === 'ADMIN' || user?.role === 'PRODUCTION_MANAGER') && <button className="grid h-8 w-8 place-items-center rounded-md border border-emerald-200 text-emerald-700" title="Add Stock" onClick={() => { setStockForm({ quantity: '', reason: 'Manual stock addition', batchNumber: '', expiryDate: '', costPrice: '', date: datetimeLocalNow() }); setStockProduct(product); }}><PlusCircle size={15} /></button>}{canEditDelete(user?.role) && <><button className="grid h-8 w-8 place-items-center rounded-md border border-blue-200 text-blue-700" title="Edit" onClick={() => setEditingProduct(product)}><Edit size={15} /></button><button className="grid h-8 w-8 place-items-center rounded-md border border-red-200 text-red-700" title="Delete" onClick={() => setDeleteProduct(product)}><Trash2 size={15} /></button></>}</div></td>
+                    <td><div className="flex justify-end gap-2">{(user?.role === 'ADMIN' || user?.role === 'PRODUCTION_MANAGER') && <button className="grid h-8 w-8 place-items-center rounded-md border border-emerald-200 text-emerald-700" title="Adjust Stock" onClick={() => { setStockForm({ quantity: '', reason: 'Manual stock addition', batchNumber: '', expiryDate: '', costPrice: '', date: datetimeLocalNow(), adjustmentType: 'IN' }); setStockProduct(product); }}><PlusCircle size={15} /></button>}{canEditDelete(user?.role) && <><button className="grid h-8 w-8 place-items-center rounded-md border border-blue-200 text-blue-700" title="Edit" onClick={() => setEditingProduct(product)}><Edit size={15} /></button><button className="grid h-8 w-8 place-items-center rounded-md border border-red-200 text-red-700" title="Delete" onClick={() => setDeleteProduct(product)}><Trash2 size={15} /></button></>}</div></td>
                   </tr>
                 ))}
                 {!products.data?.length && <tr><td colSpan={7} className="py-8 text-center text-slate-500">No products found</td></tr>}
@@ -153,15 +153,22 @@ export default function Inventory() {
       <Modal isOpen={Boolean(editingProduct)} onClose={() => setEditingProduct(null)} title={`Edit ${editingProduct?.name || 'Product'}`} size="lg">
         {editingProduct && <ProductEditForm product={editingProduct} categories={categories.data || []} onCancel={() => setEditingProduct(null)} onSave={(data) => updateProduct.mutate(data)} isSaving={updateProduct.isPending} />}
       </Modal>
-      <Modal isOpen={Boolean(stockProduct)} onClose={() => setStockProduct(null)} title={`Add Stock: ${stockProduct?.name || 'Product'}`} size="md">
+      <Modal isOpen={Boolean(stockProduct)} onClose={() => setStockProduct(null)} title={`Adjust Stock: ${stockProduct?.name || 'Product'}`} size="md">
         {stockProduct && (
           <div className="space-y-4">
             <div className="rounded-xl bg-[#fff4df] p-3 text-sm">
               <div>Current Stock: <b>{stockProduct.currentStock} {stockProduct.unit}</b></div>
-              <div>New Stock will be: <b>{stockProduct.currentStock} + {Number(stockForm.quantity || 0)} = {stockProduct.currentStock + Number(stockForm.quantity || 0)} {stockProduct.unit}</b></div>
+              <div>New Stock will be: <b>{stockProduct.currentStock} {stockForm.adjustmentType === 'IN' ? '+' : '-'} {Number(stockForm.quantity || 0)} = {stockForm.adjustmentType === 'IN' ? stockProduct.currentStock + Number(stockForm.quantity || 0) : stockProduct.currentStock - Number(stockForm.quantity || 0)} {stockProduct.unit}</b></div>
+            </div>
+            <div>
+              <span className="text-sm font-semibold">Adjustment Type *</span>
+              <div className="mt-1.5 flex gap-3">
+                <label className="flex cursor-pointer items-center gap-1.5"><input type="radio" name="adjType" value="IN" checked={stockForm.adjustmentType === 'IN'} onChange={() => setStockForm({ ...stockForm, adjustmentType: 'IN', reason: stockForm.reason === 'Manual stock removal' ? 'Manual stock addition' : stockForm.reason })} /><span className="font-semibold text-green-600">+ Add Stock</span></label>
+                <label className="flex cursor-pointer items-center gap-1.5"><input type="radio" name="adjType" value="OUT" checked={stockForm.adjustmentType === 'OUT'} onChange={() => setStockForm({ ...stockForm, adjustmentType: 'OUT', reason: stockForm.reason === 'Manual stock addition' ? 'Manual stock removal' : stockForm.reason })} /><span className="font-semibold text-red-600">- Remove Stock</span></label>
+              </div>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="grid gap-1 text-sm"><span>Quantity to Add *</span><input className="erp-input" type="number" min="0" step="0.001" placeholder="0.000" value={stockForm.quantity} onChange={(event) => setStockForm({ ...stockForm, quantity: event.target.value })} /></label>
+              <label className="grid gap-1 text-sm"><span>Quantity *</span><input className="erp-input" type="number" min="0" step="0.001" placeholder="0.000" value={stockForm.quantity} onChange={(event) => setStockForm({ ...stockForm, quantity: event.target.value })} /></label>
               <label className="grid gap-1 text-sm"><span>Unit</span><select className="erp-input" value={stockProduct.unit} disabled>{ALL_UNITS.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></label>
               <label className="grid gap-1 text-sm md:col-span-2"><span>Reason</span><input className="erp-input" placeholder="Production complete" value={stockForm.reason} onChange={(event) => setStockForm({ ...stockForm, reason: event.target.value })} /></label>
               <label className="grid gap-1 text-sm"><span>Batch Number</span><input className="erp-input" placeholder="Optional" value={stockForm.batchNumber} onChange={(event) => setStockForm({ ...stockForm, batchNumber: event.target.value })} /></label>
@@ -169,7 +176,8 @@ export default function Inventory() {
               <label className="grid gap-1 text-sm md:col-span-2"><span>Date & Time <small className="text-slate-500">(defaults to now)</small></span><input className="erp-input" type="datetime-local" value={stockForm.date} onChange={(event) => setStockForm({ ...stockForm, date: event.target.value })} /></label>
               <label className="grid gap-1 text-sm md:col-span-2"><span>Cost Price (per unit)</span><input className="erp-input" type="number" min="0" step="0.001" placeholder={stockProduct.currentCost ? String(stockProduct.currentCost) : 'Optional'} value={stockForm.costPrice} onChange={(event) => setStockForm({ ...stockForm, costPrice: event.target.value })} /></label>
             </div>
-            <div className="flex justify-end gap-3"><button className="btn-secondary" type="button" onClick={() => setStockProduct(null)}>Cancel</button><button className="btn-primary" type="button" disabled={addStock.isPending || Number(stockForm.quantity || 0) <= 0} onClick={() => addStock.mutate()}>{addStock.isPending ? 'Adding...' : 'Add Stock'}</button></div>
+            {stockForm.adjustmentType === 'OUT' && Number(stockForm.quantity || 0) > stockProduct.currentStock && <p className="text-sm font-semibold text-red-600">Cannot remove more than current stock ({stockProduct.currentStock} {stockProduct.unit})</p>}
+            <div className="flex justify-end gap-3"><button className="btn-secondary" type="button" onClick={() => setStockProduct(null)}>Cancel</button><button className="btn-primary" type="button" disabled={addStock.isPending || Number(stockForm.quantity || 0) <= 0 || (stockForm.adjustmentType === 'OUT' && Number(stockForm.quantity || 0) > stockProduct.currentStock)} onClick={() => addStock.mutate()}>{addStock.isPending ? 'Saving...' : 'Adjust Stock'}</button></div>
           </div>
         )}
       </Modal>

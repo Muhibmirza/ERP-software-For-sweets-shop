@@ -1,7 +1,7 @@
 import { DARBAR_SWEETS_LOGO_BASE64 } from '../../constants/logo';
 import { pkr } from '../../utils/format';
 
-export function PayslipPrint({ salary }: { salary: any }) {
+export function PayslipPrint({ salary, employeeLoan }: { salary: any; employeeLoan?: any }) {
   const employee = salary?.employee || {};
   const totalEarnings = (salary?.grossWage || 0) + (salary?.arrears || 0) + (salary?.bonus || salary?.bonuses || 0);
   const totalDeductions = (salary?.advanceDeduction || salary?.advances || 0) + (salary?.loanDeduction || 0) + (salary?.fineDeduction || 0) + (salary?.otherDeductions || salary?.deductions || 0);
@@ -32,6 +32,15 @@ export function PayslipPrint({ salary }: { salary: any }) {
       <div className="print-row"><span>Fine</span><span>{pkr(salary?.fineDeduction || 0)}</span></div>
       <div className="print-row"><span>Other</span><span>{pkr(salary?.otherDeductions || salary?.deductions || 0)}</span></div>
       <div className="print-row"><b>Total Deductions</b><b>{pkr(totalDeductions)}</b></div>
+      {employeeLoan && (
+        <>
+          <div className="print-line" />
+          <div style={{ fontSize: '10pt', marginBottom: '2px' }}>LOAN STATUS</div>
+          <div className="print-row" style={{ fontSize: '10pt' }}><span>Long Term Loan Total</span><b>{pkr(employeeLoan.totalAmount || 0)}</b></div>
+          <div className="print-row" style={{ fontSize: '10pt' }}><span>Deducted This Month</span><b>{pkr(salary?.loanDeduction || 0)}</b></div>
+          <div className="print-row" style={{ fontSize: '11pt', fontWeight: 900 }}><span>Remaining Loan Balance</span><span>{pkr(employeeLoan.remainingBalance || 0)}</span></div>
+        </>
+      )}
       <div className="print-line" />
       <div className="print-row print-total"><span>NET PAYABLE</span><span>{pkr(salary?.netSalary || 0)}</span></div>
       <div>Payment Method: {salary?.paymentMethod || '-'}</div>

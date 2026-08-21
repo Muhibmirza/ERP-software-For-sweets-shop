@@ -1,12 +1,13 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Printer } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { api, unwrap } from '../../api/client';
 import { PayslipPrint } from '../../components/print/PayslipPrint';
 import { queryClient } from '../../queryClient';
 import { useUiStore } from '../../store/ui';
 import { pkr } from '../../utils/format';
-import { printElement } from '../../utils/print';
+import { silentPrint } from '../../utils/print';
 
 const current = new Date();
 
@@ -95,6 +96,15 @@ export default function SalaryPage() {
   });
 
   const set = (key: string, value: string) => setForm((prev: any) => ({ ...prev, [key]: value }));
+  const printPayslip = async (salaryId: string) => {
+    try {
+      const data = await unwrap<any>(api.get(`/api/salary/${salaryId}/payslip`));
+      const printableSalary = { ...data.salary, employee: data.employee };
+      silentPrint(renderToStaticMarkup(<PayslipPrint salary={printableSalary} employeeLoan={data.loan} />));
+    } catch (error: any) {
+      toast(error?.response?.data?.message || 'Could not load payslip', 'error');
+    }
+  };
 
   return (
     <section className="page-fade space-y-5">
@@ -140,7 +150,7 @@ export default function SalaryPage() {
       </div>
       <div className="erp-card overflow-x-auto p-5">
         <table className="w-full min-w-[780px] text-sm"><thead><tr className="text-left text-[#6b7d78]"><th className="py-3">Employee</th><th>Month</th><th>Gross</th><th>Net</th><th>Status</th><th className="text-right">Print</th></tr></thead><tbody>
-          {(salaries.data || []).map((salary) => <tr key={salary.id} className="border-t border-[#ead8bb] odd:bg-[#fffaf0]/60"><td className="py-3 font-semibold">{salary.employee?.name}</td><td>{salary.month}/{salary.year}</td><td>{pkr(salary.grossWage || salary.basicSalary || 0)}</td><td>{pkr(salary.netSalary || 0)}</td><td>{salary.isPaid ? 'Paid' : 'Unpaid'}</td><td className="text-right"><button className="btn-secondary" onClick={() => printElement(`payslip-${salary.id}`)}><Printer size={16} /> Print</button><div id={`payslip-${salary.id}`} className="fixed -left-[9999px] top-0 bg-white p-4 text-black"><PayslipPrint salary={salary} /></div></td></tr>)}
+          {(salaries.data || []).map((salary) => <tr key={salary.id} className="border-t border-[#ead8bb] odd:bg-[#fffaf0]/60"><td className="py-3 font-semibold">{salary.employee?.name}</td><td>{salary.month}/{salary.year}</td><td>{pkr(salary.grossWage || salary.basicSalary || 0)}</td><td>{pkr(salary.netSalary || 0)}</td><td>{salary.isPaid ? 'Paid' : 'Unpaid'}</td><td className="text-right"><button className="btn-secondary" onClick={() => printPayslip(salary.id)}><Printer size={16} /> Print</button></td></tr>)}
         </tbody></table>
       </div>
     </section>

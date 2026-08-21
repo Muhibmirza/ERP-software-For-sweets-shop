@@ -397,7 +397,11 @@ export const getPayslipById = async (req: Request, res: Response) => {
       include: { employee: true, paidByUser: { select: { name: true } }, linkedProductionOrder: { include: { product: true } } }
     });
     if (!salary) return res.status(404).json({ success: false, message: 'Payslip not found' });
-    res.json({ success: true, data: salary });
+    const loan = await prisma.employeeLoan.findFirst({
+      where: { employeeId: salary.employeeId, isCleared: false },
+      orderBy: { startDate: 'asc' }
+    });
+    res.json({ success: true, data: { salary, employee: salary.employee, loan } });
   } catch { res.status(500).json({ success: false, message: 'Server error' }); }
 };
 

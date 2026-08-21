@@ -79,7 +79,7 @@ export default function Staff() {
             <h2 className="font-semibold">Employees</h2>
             <p className="text-sm text-slate-500">Attendance Date: {date(attendanceDate)}</p>
           </div>
-          <input className="erp-input max-w-56" type="date" value={attendanceDate} onChange={(event) => setAttendanceDate(event.target.value)} />
+          <input className="erp-input max-w-56" type="date" value={attendanceDate} max={new Date().toISOString().slice(0, 10)} onChange={(event) => setAttendanceDate(event.target.value)} />
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {employees.data?.map((employee) => (

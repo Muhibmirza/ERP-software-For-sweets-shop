@@ -8,6 +8,7 @@ import { useUiStore } from '../store/ui';
 import { Modal } from '../components/ui/Modal';
 import { ALL_UNITS } from '../constants/units';
 import { SupplierPaymentSlipPrint } from '../components/print/SupplierPaymentSlipPrint';
+import { SupplierReceiptSlip } from '../components/print/SupplierReceiptSlip';
 import { silentPrint } from '../utils/print';
 
 export default function SupplierDetail() {
@@ -23,6 +24,8 @@ export default function SupplierDetail() {
   const [lastPayment, setLastPayment] = useState<any>(null);
   const [advanceForm, setAdvanceForm] = useState({ advanceType: 'SHORT_TERM', totalAmount: '', monthlyDeduction: '', reason: '' });
   const [returnOpen, setReturnOpen] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptDates, setReceiptDates] = useState({ startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10), endDate: new Date().toISOString().slice(0, 10) });
   const [returnForm, setReturnForm] = useState({
     purchaseOrderId: '',
     reason: '',
@@ -121,10 +124,21 @@ export default function SupplierDetail() {
     if (!paymentSummary.data) return toast('Payment summary is still loading', 'error');
     silentPrint(renderToStaticMarkup(<SupplierPaymentSlipPrint summary={paymentSummary.data} payment={payment} />));
   };
+  const printSupplierReceipt = async () => {
+    if (!receiptDates.startDate || !receiptDates.endDate) return toast('Please select both dates', 'error');
+    if (receiptDates.startDate > receiptDates.endDate) return toast('From date cannot be after to date', 'error');
+    try {
+      const receipt = await unwrap<any>(api.get(`/api/suppliers/${id}/receipt`, { params: receiptDates }));
+      silentPrint(renderToStaticMarkup(<SupplierReceiptSlip receipt={receipt} />));
+      setReceiptOpen(false);
+    } catch (error: any) {
+      toast(error.response?.data?.message || 'Could not generate supplier receipt', 'error');
+    }
+  };
 
   return (
     <section className="page-fade space-y-5">
-      <div className="erp-page-header"><div><p className="erp-eyebrow">Supplier 360</p><h2 className="erp-title">{supplier?.name || 'Supplier Profile'}</h2></div></div>
+      <div className="erp-page-header"><div><p className="erp-eyebrow">Supplier 360</p><h2 className="erp-title">{supplier?.name || 'Supplier Profile'}</h2></div><button className="btn-secondary" type="button" onClick={() => setReceiptOpen(true)}>Print Receipt</button></div>
       <div className="grid gap-4 md:grid-cols-4">
         <Info label="Phone" value={supplier?.phone || '-'} />
         <Info label="City" value={supplier?.city || '-'} />
@@ -259,6 +273,14 @@ export default function SupplierDetail() {
           </tbody>
         </table>
       </div>
+      <Modal isOpen={receiptOpen} onClose={() => setReceiptOpen(false)} title="Supplier Receipt" size="sm">
+        <div className="grid gap-4">
+          <label className="grid gap-1 text-sm"><span>From Date *</span><input className="erp-input" type="date" value={receiptDates.startDate} onChange={(event) => setReceiptDates({ ...receiptDates, startDate: event.target.value })} /></label>
+          <label className="grid gap-1 text-sm"><span>To Date *</span><input className="erp-input" type="date" value={receiptDates.endDate} onChange={(event) => setReceiptDates({ ...receiptDates, endDate: event.target.value })} /></label>
+          <div className="flex justify-end gap-2"><button className="btn-secondary" type="button" onClick={() => setReceiptOpen(false)}>Cancel</button><button className="btn-primary" type="button" disabled={!receiptDates.startDate || !receiptDates.endDate} onClick={printSupplierReceipt}>Generate & Print</button></div>
+        </div>
+      </Modal>
+
       <Modal isOpen={returnOpen} onClose={() => setReturnOpen(false)} title="Return to Supplier" size="lg">
         <div className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2">

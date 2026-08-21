@@ -147,6 +147,7 @@ export const stockIn = async (req: AuthRequest, res: Response) => {
     const quantity = toNumber(req.body.quantity);
     if (quantity <= 0) return res.status(400).json({ success: false, message: 'Quantity must be greater than 0' });
     const { reason, batchNumber, expiryDate } = req.body;
+    const transactionDate = req.body.date ? new Date(req.body.date) : new Date();
     const result = await prisma.$transaction(async (tx) => {
       const material = await tx.rawMaterial.update({
         where: { id: req.params.id },
@@ -162,7 +163,7 @@ export const stockIn = async (req: AuthRequest, res: Response) => {
           batchNumber: batchNumber || null,
           expiryDate: expiryDate ? new Date(expiryDate) : null,
           userId: req.user!.id,
-          createdAt: req.body.date ? new Date(req.body.date) : new Date()
+          createdAt: transactionDate
         }
       });
       let purchase: any = null;
@@ -176,6 +177,7 @@ export const stockIn = async (req: AuthRequest, res: Response) => {
             paidAmount: 0,
             status: 'RECEIVED',
             notes: reason || `Stock in for ${material.name}`,
+            createdAt: transactionDate,
             items: { create: [{ rawMaterialId: material.id, quantity, unitCost, subtotal }] }
           },
           include: { items: { include: { rawMaterial: true } } }

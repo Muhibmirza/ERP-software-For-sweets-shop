@@ -145,6 +145,80 @@ supplierRouter.get('/:id/payment-summary', async (req, res) => {
   });
 });
 
+supplierRouter.get('/:id/receipt', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    if (!startDate || !endDate) {
+      return res.status(400).json({ success: false, message: 'Start date and end date are required' });
+    }
+    const start = new Date(`${String(startDate)}T00:00:00`);
+    const end = new Date(`${String(endDate)}T23:59:59.999`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
+      return res.status(400).json({ success: false, message: 'Please select a valid date range' });
+    }
+
+    const [supplier, purchases, shortTermAdvances, longTermAdvances] = await Promise.all([
+      prisma.supplier.findUnique({ where: { id: req.params.id } }),
+      prisma.purchaseOrder.findMany({
+        where: {
+          supplierId: req.params.id,
+          createdAt: { gte: start, lte: end },
+          status: { in: ['RECEIVED', 'PARTIAL', 'PAID'] }
+        },
+        include: { items: { include: { rawMaterial: true } } },
+        orderBy: { createdAt: 'asc' }
+      }),
+      prisma.supplierAdvance.findMany({
+        where: { supplierId: req.params.id, advanceType: 'SHORT_TERM', isFullyRecovered: false }
+      }),
+      prisma.supplierAdvance.findMany({
+        where: { supplierId: req.params.id, advanceType: 'LONG_TERM', isFullyRecovered: false }
+      })
+    ]);
+
+    if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
+
+    const materialMap: Record<string, { id: string; name: string; unit: string; totalQty: number; totalAmount: number }> = {};
+    for (const purchase of purchases) {
+      for (const item of purchase.items) {
+        if (!materialMap[item.rawMaterialId]) {
+          materialMap[item.rawMaterialId] = {
+            id: item.rawMaterialId,
+            name: item.rawMaterial.name,
+            unit: item.rawMaterial.unit,
+            totalQty: 0,
+            totalAmount: 0
+          };
+        }
+        materialMap[item.rawMaterialId].totalQty += Number(item.quantity || 0);
+        materialMap[item.rawMaterialId].totalAmount += Number(item.subtotal || 0);
+      }
+    }
+
+    const materials = Object.values(materialMap);
+    const totalPurchaseAmount = materials.reduce((sum, material) => sum + material.totalAmount, 0);
+    const shortTermDeduction = shortTermAdvances.reduce((sum, advance) => sum + Number(advance.remainingBalance || 0), 0);
+    const longTermDeduction = longTermAdvances.reduce((sum, advance) => sum + Math.min(Number(advance.remainingBalance || 0), Number(advance.monthlyDeduction || 0)), 0);
+    const actualPayable = totalPurchaseAmount - shortTermDeduction - longTermDeduction;
+
+    res.json({
+      success: true,
+      data: {
+        supplier,
+        startDate: String(startDate),
+        endDate: String(endDate),
+        materials,
+        totalPurchaseAmount,
+        shortTermDeduction,
+        longTermDeduction,
+        actualPayable
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'Could not generate supplier receipt' });
+  }
+});
+
 supplierRouter.get('/:id/ledger', async (req, res) => {
   const supplier = await prisma.supplier.findUnique({
     where: { id: req.params.id },

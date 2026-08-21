@@ -117,9 +117,10 @@ export const deleteProduct = async (req: Request, res: Response) => {
 
 export const addProductStock = async (req: any, res: Response) => {
   try {
-    const { quantity, reason, batchNumber, expiryDate, costPrice, date } = req.body;
+    const { quantity, reason, batchNumber, expiryDate, costPrice, date, adjustmentType = 'IN' } = req.body;
     const qty = Number(quantity);
     const unitCost = costPrice !== undefined && costPrice !== '' ? Number(costPrice) : null;
+    const movementType = adjustmentType === 'OUT' ? 'OUT' : 'IN';
 
     if (!Number.isFinite(qty) || qty <= 0) {
       return res.status(400).json({ success: false, message: 'Quantity to add is required' });
@@ -130,12 +131,15 @@ export const addProductStock = async (req: any, res: Response) => {
 
     const product = await prisma.product.findUnique({ where: { id: req.params.id } });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+    if (movementType === 'OUT' && qty > product.currentStock) {
+      return res.status(400).json({ success: false, message: `Cannot remove ${qty}. Current stock is ${product.currentStock}` });
+    }
 
     const updatedProduct = await prisma.$transaction(async (tx) => {
       const updated = await tx.product.update({
         where: { id: product.id },
         data: {
-          currentStock: { increment: qty },
+          currentStock: movementType === 'IN' ? { increment: qty } : { decrement: qty },
           ...(unitCost !== null ? { currentCost: unitCost, costPrice: unitCost } : {})
         },
         include: { category: true }
@@ -144,9 +148,9 @@ export const addProductStock = async (req: any, res: Response) => {
       await tx.stockMovement.create({
         data: {
           productId: product.id,
-          type: 'IN',
+          type: movementType,
           quantity: qty,
-          reason: reason || 'Manual stock addition',
+          reason: reason || (movementType === 'IN' ? 'Manual stock addition' : 'Manual stock removal'),
           batchNumber: batchNumber || null,
           expiryDate: expiryDate ? new Date(expiryDate) : null,
           userId: req.user.id,
