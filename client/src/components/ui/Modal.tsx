@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ModalProps {
   isOpen: boolean;
@@ -24,9 +25,9 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
     return () => document.body.classList.remove('modal-open');
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
@@ -36,9 +37,11 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
         alignItems: 'center',
         justifyContent: 'center',
         padding: '16px',
+        overflowY: 'auto',
         backgroundColor: 'rgba(0, 0, 0, 0.4)',
         backdropFilter: 'blur(6px)',
-        WebkitBackdropFilter: 'blur(6px)'
+        WebkitBackdropFilter: 'blur(6px)',
+        overscrollBehavior: 'contain'
       }}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -49,7 +52,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
         style={{
           width: '100%',
           maxWidth: sizeMap[size],
-          maxHeight: '90vh',
+          maxHeight: 'calc(100dvh - 32px)',
           borderRadius: '12px',
           boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
           position: 'relative'
@@ -64,6 +67,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
         </header>
         <div className="p-5">{children}</div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }
