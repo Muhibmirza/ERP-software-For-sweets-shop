@@ -91,7 +91,7 @@ export default function Staff() {
               <div className="mt-2 text-sm">{employee.salaryType === 'DAILY' ? `${pkr(employee.dailyWage || 0)} / day` : pkr(employee.basicSalary)} - Joined {date(employee.joiningDate)}</div>
               <div className="mt-3 flex justify-end gap-2">
                 <Link className="grid h-8 place-items-center rounded-md border border-slate-200 px-3 text-xs text-slate-700" to={`/hr/employees/${employee.id}`}>View</Link>
-                <Link className="grid h-8 place-items-center rounded-md border border-emerald-200 px-3 text-xs text-emerald-700" to={`/hr/leave?employeeId=${employee.id}`}>Leave</Link>
+                <Link className="grid h-8 place-items-center rounded-md border border-emerald-200 px-3 text-xs text-emerald-700" to={`/leave?employeeId=${employee.id}`}>Leave</Link>
                 {canEditDelete(user?.role) && <button className="grid h-8 w-8 place-items-center rounded-md border border-blue-200 text-blue-700" title="Edit" onClick={() => setEditing(employee)}><Edit size={15} /></button>}
                 {canEditDelete(user?.role) && employee.isActive && <button className="grid h-8 w-8 place-items-center rounded-md border border-red-200 text-red-700" title="Deactivate" onClick={() => setDeactivating(employee)}><UserX size={15} /></button>}
                 {canEditDelete(user?.role) && <button className="grid h-8 w-8 place-items-center rounded-md border border-red-300 text-red-800" title="Delete permanently" onClick={() => setDeleting(employee)}><Trash2 size={15} /></button>}

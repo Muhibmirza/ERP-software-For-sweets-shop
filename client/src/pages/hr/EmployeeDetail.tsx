@@ -43,7 +43,7 @@ export default function EmployeeDetail() {
           <Link className="mb-2 inline-flex items-center gap-2 text-sm text-[#0f615d]" to="/staff"><ArrowLeft size={16} /> Back to Staff</Link>
           <p className="erp-eyebrow">HR</p>
           <h2 className="erp-title">{data?.name || 'Employee Detail'}</h2>
-          {id && <Link className="mt-3 inline-flex rounded-md border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700" to={`/hr/leave?employeeId=${id}`}>View / Manage Leaves</Link>}
+          {id && <Link className="mt-3 inline-flex rounded-md border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-700" to={`/leave?employeeId=${id}`}>View / Manage Leaves</Link>}
         </div>
       </div>
 
