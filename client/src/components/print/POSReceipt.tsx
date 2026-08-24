@@ -2,6 +2,7 @@ import dayjs from 'dayjs';
 import type { Sale } from '../../types';
 import { DARBAR_SWEETS_LOGO_BASE64 } from '../../constants/logo';
 import { formatQuantity } from '../../utils/format';
+import { PrintBrandFooter } from './PrintBrandFooter';
 
 interface POSReceiptProps {
   sale: Sale;
@@ -73,9 +74,7 @@ export function POSReceipt({ sale }: POSReceiptProps) {
       {line}
       <div style={{ textAlign: 'center', fontSize: '12pt', fontWeight: 900, margin: '6px 0' }}>Thank You</div>
       {line}
-      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
-        Built by Viralage | Developed by Muhib Mirza
-      </div>
+      <PrintBrandFooter />
     </div>
   );
 }

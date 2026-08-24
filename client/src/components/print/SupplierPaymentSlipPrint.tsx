@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import { DARBAR_SWEETS_LOGO_BASE64 } from '../../constants/logo';
+import { PrintBrandFooter } from './PrintBrandFooter';
 
 const money = (value: number) => Number(value || 0).toLocaleString('en-PK', { maximumFractionDigits: 0 });
 
@@ -10,6 +11,8 @@ export function SupplierPaymentSlipPrint({ summary, payment }: { summary: any; p
   const longTerm = Number(payment?.longTermDeduction ?? summary?.longTermDeduction ?? 0);
   const totalDeductions = shortTerm + longTerm;
   const actualPayment = Number(payment?.amount ?? summary?.actualPayment ?? 0);
+  const shortTermRemaining = Number(payment?.shortTermRemainingBalance ?? summary?.shortTermRemainingBalance ?? 0);
+  const longTermRemaining = Number(payment?.longTermRemainingBalance ?? summary?.longTermRemainingBalance ?? 0);
 
   return (
     <div className="thermal-print">
@@ -42,14 +45,14 @@ export function SupplierPaymentSlipPrint({ summary, payment }: { summary: any; p
       <div className="print-row"><span>Short Term Advance</span><b>- {money(shortTerm)}</b></div>
       <div className="print-row"><span>Long Term Advance</span><b>- {money(longTerm)}</b></div>
       <div className="print-row"><span>Total Deductions</span><b>{money(totalDeductions)}</b></div>
+      <div className="print-row"><span>Short Term Remaining</span><b>{money(shortTermRemaining)}</b></div>
+      <div className="print-row"><span>Long Term Remaining</span><b>{money(longTermRemaining)}</b></div>
       <div className="print-total print-row"><span>ACTUAL PAYMENT</span><b>{money(actualPayment)}</b></div>
       <div className="print-row"><span>Payment Method</span><b>{payment?.paymentMethod || '-'}</b></div>
       <div className="print-line" />
       <div className="print-center">Thank You</div>
       <div className="print-line" />
-      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
-        Built by Viralage | Developed by Muhib Mirza
-      </div>
+      <PrintBrandFooter />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import { DARBAR_SWEETS_LOGO_BASE64 } from '../../constants/logo';
 import { formatQuantity, pkr } from '../../utils/format';
+import { PrintBrandFooter } from './PrintBrandFooter';
 
 export function RecipePrint({ recipe, cost }: { recipe: any; cost?: any }) {
   const rawMaterialCost = cost?.rawMaterialCost || cost?.totalRawMaterialCost || 0;
@@ -31,9 +32,7 @@ export function RecipePrint({ recipe, cost }: { recipe: any; cost?: any }) {
       <div className="print-center">(Selling price set separately)</div>
       {recipe?.notes && <p>Notes: {recipe.notes}</p>}
       <div className="print-line" />
-      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
-        Built by Viralage | Developed by Muhib Mirza
-      </div>
+      <PrintBrandFooter />
     </div>
   );
 }

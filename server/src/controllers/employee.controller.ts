@@ -264,6 +264,61 @@ const salaryPreview = async (body: any) => {
   };
 };
 
+const syncSalaryLoanRecovery = async (tx: any, salary: any) => {
+  const requestedDeduction = Math.max(0, Number(salary.loanDeduction || 0));
+  const existingRecoveries = await tx.loanRecovery.findMany({
+    where: { salaryId: salary.id },
+    include: { loan: true }
+  });
+  const existingTotal = existingRecoveries.reduce((sum: number, recovery: any) => sum + Number(recovery.amount || 0), 0);
+
+  if (Math.abs(existingTotal - requestedDeduction) < 0.001) return;
+
+  for (const recovery of existingRecoveries) {
+    const restoredBalance = Math.min(
+      Number(recovery.loan.totalAmount || 0),
+      Number(recovery.loan.remainingBalance || 0) + Number(recovery.amount || 0)
+    );
+    await tx.employeeLoan.update({
+      where: { id: recovery.loanId },
+      data: { remainingBalance: restoredBalance, isCleared: false }
+    });
+  }
+  if (existingRecoveries.length) {
+    await tx.loanRecovery.deleteMany({ where: { salaryId: salary.id } });
+  }
+  if (requestedDeduction <= 0) return;
+
+  const loans = await tx.employeeLoan.findMany({
+    where: { employeeId: salary.employeeId, remainingBalance: { gt: 0 } },
+    orderBy: { startDate: 'asc' }
+  });
+  const outstandingBalance = loans.reduce((sum: number, loan: any) => sum + Number(loan.remainingBalance || 0), 0);
+  if (requestedDeduction > outstandingBalance + 0.001) {
+    throw new Error(`Loan deduction cannot exceed remaining loan balance ${outstandingBalance}`);
+  }
+
+  let remainingDeduction = requestedDeduction;
+  for (const loan of loans) {
+    if (remainingDeduction <= 0) break;
+    const recoveryAmount = Math.min(Number(loan.remainingBalance || 0), remainingDeduction);
+    const nextBalance = Math.max(0, Number(loan.remainingBalance || 0) - recoveryAmount);
+    await tx.employeeLoan.update({
+      where: { id: loan.id },
+      data: { remainingBalance: nextBalance, isCleared: nextBalance <= 0 }
+    });
+    await tx.loanRecovery.create({
+      data: {
+        loanId: loan.id,
+        amount: recoveryAmount,
+        date: salary.paidDate || new Date(),
+        salaryId: salary.id
+      }
+    });
+    remainingDeduction -= recoveryAmount;
+  }
+};
+
 export const calculateSalary = async (req: any, res: Response) => {
   try {
     const preview = await salaryPreview(req.body);
@@ -326,6 +381,7 @@ export const generateSalary = async (req: any, res: Response) => {
           paidBy: req.user.id
         }
       });
+      await syncSalaryLoanRecovery(tx, saved);
       await createSalaryExpenseEntry(preview.employee.id, saved.id, preview.netSalary, tx);
       return saved;
     });
@@ -364,6 +420,7 @@ export const markSalaryPaid = async (req: any, res: Response) => {
           remaining -= deduct;
         }
       }
+      await syncSalaryLoanRecovery(tx, paid);
       await createSalaryPaymentEntry(paid.employeeId, paid.id, paid.netSalary, tx);
       return paid;
     });
@@ -397,10 +454,19 @@ export const getPayslipById = async (req: Request, res: Response) => {
       include: { employee: true, paidByUser: { select: { name: true } }, linkedProductionOrder: { include: { product: true } } }
     });
     if (!salary) return res.status(404).json({ success: false, message: 'Payslip not found' });
-    const loan = await prisma.employeeLoan.findFirst({
+    const salaryRecoveries = await prisma.loanRecovery.findMany({
+      where: { salaryId: salary.id },
+      include: { loan: true }
+    });
+    const recoveredLoans = Array.from(new Map(salaryRecoveries.map((recovery) => [recovery.loan.id, recovery.loan])).values());
+    const activeLoan = recoveredLoans.length ? null : await prisma.employeeLoan.findFirst({
       where: { employeeId: salary.employeeId, isCleared: false },
       orderBy: { startDate: 'asc' }
     });
+    const loan = recoveredLoans.length ? {
+      totalAmount: recoveredLoans.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0),
+      remainingBalance: recoveredLoans.reduce((sum, item) => sum + Number(item.remainingBalance || 0), 0)
+    } : activeLoan;
     res.json({ success: true, data: { salary, employee: salary.employee, loan } });
   } catch { res.status(500).json({ success: false, message: 'Server error' }); }
 };

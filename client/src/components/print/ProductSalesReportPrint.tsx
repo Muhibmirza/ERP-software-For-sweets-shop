@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import { DARBAR_SWEETS_LOGO_BASE64 } from '../../constants/logo';
+import { PrintBrandFooter } from './PrintBrandFooter';
 
 const money = (value: number) => Number(value || 0).toLocaleString('en-PK', { maximumFractionDigits: 0 });
 const qty = (value: number) => Number(value || 0).toLocaleString('en-PK', { maximumFractionDigits: 2 });
@@ -37,9 +38,7 @@ export function ProductSalesReportPrint({ report }: { report: any }) {
       <div style={{ textAlign: 'center', fontSize: '9pt', fontWeight: 'normal' }}>
         Printed: {dayjs().format('DD-MMM-YYYY  hh:mm A')}
       </div>
-      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
-        Built by Viralage | Developed by Muhib Mirza
-      </div>
+      <PrintBrandFooter />
     </div>
   );
 }

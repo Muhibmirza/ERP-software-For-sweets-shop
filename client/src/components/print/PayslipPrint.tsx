@@ -1,5 +1,6 @@
 import { DARBAR_SWEETS_LOGO_BASE64 } from '../../constants/logo';
 import { pkr } from '../../utils/format';
+import { PrintBrandFooter } from './PrintBrandFooter';
 
 export function PayslipPrint({ salary, employeeLoan }: { salary: any; employeeLoan?: any }) {
   const employee = salary?.employee || {};
@@ -48,9 +49,7 @@ export function PayslipPrint({ salary, employeeLoan }: { salary: any; employeeLo
       <div className="print-line" />
       <div>Authorized: ______________</div>
       <div className="print-line" />
-      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
-        Built by Viralage | Developed by Muhib Mirza
-      </div>
+      <PrintBrandFooter />
     </div>
   );
 }

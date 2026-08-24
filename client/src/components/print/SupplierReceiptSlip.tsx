@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import { DARBAR_SWEETS_LOGO_BASE64 } from '../../constants/logo';
+import { PrintBrandFooter } from './PrintBrandFooter';
 
 const money = (value: number) => Number(value || 0).toLocaleString('en-PK', { maximumFractionDigits: 0 });
 
@@ -38,12 +39,12 @@ export function SupplierReceiptSlip({ receipt }: { receipt: any }) {
       <b>DEDUCTIONS</b>
       <div className="print-row"><span>Short Term Advance</span><b>- Rs. {money(receipt?.shortTermDeduction)}</b></div>
       <div className="print-row"><span>Long Term Monthly</span><b>- Rs. {money(receipt?.longTermDeduction)}</b></div>
+      <div className="print-row"><span>Short Term Remaining</span><b>Rs. {money(receipt?.shortTermRemainingBalance)}</b></div>
+      <div className="print-row"><span>Long Term Remaining</span><b>Rs. {money(receipt?.longTermRemainingBalance)}</b></div>
       <div className="print-line" />
       <div className="print-total print-row"><span>ACTUAL PAYABLE</span><b>Rs. {money(receipt?.actualPayable)}</b></div>
       <div className="print-line" />
-      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
-        Built by Viralage | Developed by Muhib Mirza
-      </div>
+      <PrintBrandFooter />
     </div>
   );
 }

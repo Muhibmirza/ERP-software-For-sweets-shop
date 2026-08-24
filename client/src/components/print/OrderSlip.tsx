@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import { DARBAR_SWEETS_LOGO_BASE64 } from '../../constants/logo';
 import { formatQuantity, pkr } from '../../utils/format';
+import { PrintBrandFooter } from './PrintBrandFooter';
 
 export function OrderSlip({ order }: { order: any }) {
   return (
@@ -26,9 +27,7 @@ export function OrderSlip({ order }: { order: any }) {
       <div className="print-row"><span>Due Amount</span><span>{pkr(order?.dueAmount || 0)}</span></div>
       {order?.notes && <div>Notes: {order.notes}</div>}
       <div className="print-line" />
-      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
-        Built by Viralage | Developed by Muhib Mirza
-      </div>
+      <PrintBrandFooter />
     </div>
   );
 }

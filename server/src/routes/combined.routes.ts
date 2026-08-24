@@ -129,7 +129,9 @@ supplierRouter.get('/:id/payment-summary', async (req, res) => {
   ]);
   if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
   const totalPurchases = purchases.reduce((sum, purchase) => sum + Number(purchase.totalAmount || 0), 0);
-  const shortTermDeduction = advances.filter((advance) => advance.advanceType === 'SHORT_TERM').reduce((sum, advance) => sum + Number(advance.remainingBalance || 0), 0);
+  const shortTermOutstanding = advances.filter((advance) => advance.advanceType === 'SHORT_TERM').reduce((sum, advance) => sum + Number(advance.remainingBalance || 0), 0);
+  const longTermOutstanding = advances.filter((advance) => advance.advanceType === 'LONG_TERM').reduce((sum, advance) => sum + Number(advance.remainingBalance || 0), 0);
+  const shortTermDeduction = shortTermOutstanding;
   const longTermDeduction = advances.filter((advance) => advance.advanceType === 'LONG_TERM').reduce((sum, advance) => sum + Math.min(Number(advance.remainingBalance || 0), Number(advance.monthlyDeduction || 0)), 0);
   res.json({
     success: true,
@@ -140,6 +142,8 @@ supplierRouter.get('/:id/payment-summary', async (req, res) => {
       totalPurchases,
       shortTermDeduction,
       longTermDeduction,
+      shortTermRemainingBalance: Math.max(shortTermOutstanding - shortTermDeduction, 0),
+      longTermRemainingBalance: Math.max(longTermOutstanding - longTermDeduction, 0),
       actualPayment: Math.max(totalPurchases - shortTermDeduction - longTermDeduction, 0)
     }
   });
@@ -197,7 +201,9 @@ supplierRouter.get('/:id/receipt', async (req, res) => {
 
     const materials = Object.values(materialMap);
     const totalPurchaseAmount = materials.reduce((sum, material) => sum + material.totalAmount, 0);
-    const shortTermDeduction = shortTermAdvances.reduce((sum, advance) => sum + Number(advance.remainingBalance || 0), 0);
+    const shortTermOutstanding = shortTermAdvances.reduce((sum, advance) => sum + Number(advance.remainingBalance || 0), 0);
+    const longTermOutstanding = longTermAdvances.reduce((sum, advance) => sum + Number(advance.remainingBalance || 0), 0);
+    const shortTermDeduction = shortTermOutstanding;
     const longTermDeduction = longTermAdvances.reduce((sum, advance) => sum + Math.min(Number(advance.remainingBalance || 0), Number(advance.monthlyDeduction || 0)), 0);
     const actualPayable = totalPurchaseAmount - shortTermDeduction - longTermDeduction;
 
@@ -211,6 +217,8 @@ supplierRouter.get('/:id/receipt', async (req, res) => {
         totalPurchaseAmount,
         shortTermDeduction,
         longTermDeduction,
+        shortTermRemainingBalance: Math.max(shortTermOutstanding - shortTermDeduction, 0),
+        longTermRemainingBalance: Math.max(longTermOutstanding - longTermDeduction, 0),
         actualPayable
       }
     });
@@ -420,6 +428,15 @@ supplierRouter.post('/:id/payment', authorize('ADMIN'), async (req: any, res) =>
           }
         });
       }
+      const remainingAdvances = await tx.supplierAdvance.findMany({
+        where: { supplierId: req.params.id, isFullyRecovered: false }
+      });
+      const shortTermRemainingBalance = remainingAdvances
+        .filter((advance) => advance.advanceType === 'SHORT_TERM')
+        .reduce((sum, advance) => sum + Number(advance.remainingBalance || 0), 0);
+      const longTermRemainingBalance = remainingAdvances
+        .filter((advance) => advance.advanceType === 'LONG_TERM')
+        .reduce((sum, advance) => sum + Number(advance.remainingBalance || 0), 0);
       if (totalAdvanceDeduction > 0) {
         await createSupplierPaymentWithAdvanceEntry(req.params.id, payment.id, amount, totalAdvanceDeduction, actualPayment, tx);
       } else {
@@ -433,6 +450,8 @@ supplierRouter.post('/:id/payment', authorize('ADMIN'), async (req: any, res) =>
         paymentMethod,
         shortTermDeduction,
         longTermDeduction,
+        shortTermRemainingBalance,
+        longTermRemainingBalance,
         totalAdvanceDeduction,
         unapplied: remaining,
         payment

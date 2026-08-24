@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import { DARBAR_SWEETS_LOGO_BASE64 } from '../../constants/logo';
 import { pkr } from '../../utils/format';
+import { PrintBrandFooter } from './PrintBrandFooter';
 
 export function DailyClosingSlip({ summary, cashier }: { summary: any; cashier?: string }) {
   const paymentRows = summary?.paymentBreakdown || [];
@@ -22,9 +23,7 @@ export function DailyClosingSlip({ summary, cashier }: { summary: any; cashier?:
       <div className="print-row print-total"><span>Net Cash in Hand</span><span>{pkr(summary?.netCash || summary?.total || 0)}</span></div>
       <div className="print-center">Thank You</div>
       <div className="print-line" />
-      <div style={{ textAlign: 'center', fontSize: '8pt', color: '#555', marginTop: '8px', fontWeight: 'normal', fontStyle: 'italic' }}>
-        Built by Viralage | Developed by Muhib Mirza
-      </div>
+      <PrintBrandFooter />
     </div>
   );
 }

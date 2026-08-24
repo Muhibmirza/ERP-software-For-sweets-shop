@@ -91,6 +91,8 @@ export default function SalaryPage() {
     onSuccess: () => {
       toast('Salary generated');
       queryClient.invalidateQueries({ queryKey: ['salaries'] });
+      queryClient.invalidateQueries({ queryKey: ['employee-loans-for-salary', form.employeeId] });
+      queryClient.invalidateQueries({ queryKey: ['employee-detail', form.employeeId] });
     },
     onError: (error: any) => toast(error?.response?.data?.message || 'Could not generate salary', 'error')
   });
